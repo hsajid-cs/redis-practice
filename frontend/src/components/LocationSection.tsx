@@ -1,7 +1,8 @@
+"use client";
 import { useState, useEffect } from "react";
 import { Country, State, City } from "country-state-city";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 
 export const LocationSection = () => {
   const [selectedCountry, setSelectedCountry] = useState<string>("");
@@ -10,31 +11,83 @@ export const LocationSection = () => {
   const [states, setStates] = useState<any[]>([]);
   const [cities, setCities] = useState<any[]>([]);
 
-  const countries = Country.getAllCountries();
+  // Read countries on the client and sort them by name
+  const [countries, setCountries] = useState<any[]>([]);
+  const [countryNames, setCountryNames] = useState<string[]>([]);
+  const [countryMap, setCountryMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    try {
+      const c = Country.getAllCountries() || [];
+      c.sort((a: any, b: any) => a.name.localeCompare(b.name));
+      setCountries(c);
+      const names: string[] = [];
+      const map: Record<string, string> = {};
+      for (const co of c) {
+        names.push(co.name);
+        map[co.name] = co.isoCode;
+      }
+      setCountryNames(names);
+      setCountryMap(map);
+    } catch (e) {
+      setCountries([]);
+      setCountryNames([]);
+      setCountryMap({});
+    }
+  }, []);
 
   useEffect(() => {
     if (selectedCountry) {
-      const countryStates = State.getStatesOfCountry(selectedCountry);
+      const countryStates = State.getStatesOfCountry(selectedCountry) || [];
+      countryStates.sort((a: any, b: any) => a.name.localeCompare(b.name));
       setStates(countryStates);
+      // build state name list and map
+      const sNames: string[] = [];
+      const sMap: Record<string, string> = {};
+      for (const s of countryStates) {
+        sNames.push(s.name);
+        sMap[s.name] = s.isoCode;
+      }
+      setStateNames(sNames);
+      setStateMap(sMap);
+
       setSelectedState("");
       setSelectedCity("");
       setCities([]);
 
       // If no states, load cities directly
       if (countryStates.length === 0) {
-        const countryCities = City.getCitiesOfCountry(selectedCountry);
-        setCities(countryCities || []);
+        const countryCities = City.getCitiesOfCountry(selectedCountry) || [];
+        countryCities.sort((a: any, b: any) => a.name.localeCompare(b.name));
+        setCities(countryCities);
+        const cNames = countryCities.map((c: any) => c.name);
+        const cMap: Record<string, string> = {};
+        for (const city of countryCities) cMap[city.name] = city.name;
+        setCityNames(cNames);
+        setCityMap(cMap);
       }
     }
   }, [selectedCountry]);
 
   useEffect(() => {
     if (selectedState) {
-      const stateCities = City.getCitiesOfState(selectedCountry, selectedState);
-      setCities(stateCities || []);
+      const stateCities = City.getCitiesOfState(selectedCountry, selectedState) || [];
+      stateCities.sort((a: any, b: any) => a.name.localeCompare(b.name));
+      setCities(stateCities);
+      const cNames = stateCities.map((c: any) => c.name);
+      const cMap: Record<string, string> = {};
+      for (const city of stateCities) cMap[city.name] = city.name;
+      setCityNames(cNames);
+      setCityMap(cMap);
       setSelectedCity("");
     }
   }, [selectedState, selectedCountry]);
+
+  // maps for states/cities by name -> iso/value
+  const [stateNames, setStateNames] = useState<string[]>([]);
+  const [stateMap, setStateMap] = useState<Record<string, string>>({});
+  const [cityNames, setCityNames] = useState<string[]>([]);
+  const [cityMap, setCityMap] = useState<Record<string, string>>({});
 
   return (
     <Card>
@@ -47,18 +100,20 @@ export const LocationSection = () => {
           <label htmlFor="country" className="text-sm font-medium">
             Country
           </label>
-          <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select a country" />
-            </SelectTrigger>
-            <SelectContent>
-              {countries.map((country) => (
-                <SelectItem key={country.isoCode} value={country.isoCode}>
-                  {country.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            id="country"
+            items={countryNames}
+            value={countryMap ? (Object.keys(countryMap).find((k) => countryMap[k] === selectedCountry) || "") : ""}
+            onChange={(label) => {
+              const iso = countryMap[label];
+              setSelectedCountry(iso || "");
+              // reset dependent fields
+              setSelectedState("");
+              setSelectedCity("");
+            }}
+            placeholder="Select a country"
+            allowFreeInput={false}
+          />
         </div>
 
         {states.length > 0 && (
@@ -66,18 +121,18 @@ export const LocationSection = () => {
             <label htmlFor="state" className="text-sm font-medium">
               State
             </label>
-            <Select value={selectedState} onValueChange={setSelectedState}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a state" />
-              </SelectTrigger>
-              <SelectContent>
-                {states.map((state) => (
-                  <SelectItem key={state.isoCode} value={state.isoCode}>
-                    {state.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              id="state"
+              items={stateNames}
+              value={stateMap ? (Object.keys(stateMap).find((k) => stateMap[k] === selectedState) || "") : ""}
+              onChange={(label) => {
+                const iso = stateMap[label];
+                setSelectedState(iso || "");
+                setSelectedCity("");
+              }}
+              placeholder="Select a state"
+              allowFreeInput={false}
+            />
           </div>
         )}
 
@@ -86,18 +141,17 @@ export const LocationSection = () => {
             <label htmlFor="city" className="text-sm font-medium">
               City
             </label>
-            <Select value={selectedCity} onValueChange={setSelectedCity}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a city" />
-              </SelectTrigger>
-              <SelectContent>
-                {cities.map((city) => (
-                  <SelectItem key={city.name} value={city.name}>
-                    {city.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              id="city"
+              items={cityNames}
+              value={cityMap ? (Object.keys(cityMap).find((k) => cityMap[k] === selectedCity) || "") : ""}
+              onChange={(label) => {
+                const v = cityMap[label] || label;
+                setSelectedCity(v || "");
+              }}
+              placeholder="Select a city"
+              allowFreeInput={false}
+            />
           </div>
         )}
       </CardContent>

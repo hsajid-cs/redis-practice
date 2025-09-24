@@ -36,6 +36,19 @@ npm i
 npm run dev
 ```
 
+## Connect frontend to backend
+
+During development you can point the frontend to the backend using the Vite env var `VITE_API_BASE`.
+
+Example (Windows cmd.exe):
+
+```cmd
+set VITE_API_BASE=http://localhost:8000
+npm run dev
+```
+
+This will make the frontend call the API at the configured base URL (defaults to http://localhost:8000).
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

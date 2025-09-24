@@ -1,8 +1,10 @@
+import React from "react";
 import { LocationSection } from "@/components/LocationSection";
 import { EducationSection } from "@/components/EducationSection";
 import { ExperienceSection } from "@/components/ExperienceSection";
 
 const Index = () => {
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto space-y-6">

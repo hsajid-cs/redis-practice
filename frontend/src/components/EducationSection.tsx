@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { fetchCollection, fetchCollectionTimed } from "../lib";
 
 const degrees = [
   "High School Diploma",
@@ -39,6 +41,47 @@ const institutions = [
 export const EducationSection = () => {
   const [selectedDegree, setSelectedDegree] = useState<string>("");
   const [selectedInstitution, setSelectedInstitution] = useState<string>("");
+  const [remoteDegrees, setRemoteDegrees] = useState<string[] | null>(null);
+  const [remoteInstitutions, setRemoteInstitutions] = useState<string[] | null>(null);
+
+  const [degreesTime, setDegreesTime] = useState<number | null>(null);
+  const [institutionsTime, setInstitutionsTime] = useState<number | null>(null);
+  const [degreesRender, setDegreesRender] = useState<number | null>(null);
+  const [institutionsRender, setInstitutionsRender] = useState<number | null>(null);
+  const [degreesServer, setDegreesServer] = useState<number | null>(null);
+  const [institutionsServer, setInstitutionsServer] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const dRes = await fetchCollectionTimed("degrees");
+        const iRes = await fetchCollectionTimed("institutions");
+        if (!mounted) return;
+        const tAfterFetch = performance.now();
+        setRemoteDegrees(Array.isArray(dRes.items) ? dRes.items : []);
+        setRemoteInstitutions(Array.isArray(iRes.items) ? iRes.items : []);
+        // measure render/update time on next tick
+        setTimeout(() => {
+          if (!mounted) return;
+          const tAfterRender = performance.now();
+          const renderMs = Math.round(tAfterRender - tAfterFetch);
+          setDegreesTime(dRes.fetchTimeMs ?? null);
+          setInstitutionsTime(iRes.fetchTimeMs ?? null);
+          setDegreesRender(renderMs);
+          setInstitutionsRender(renderMs);
+        }, 0);
+        setDegreesServer(dRes.serverTimeMs ?? null);
+        setInstitutionsServer(iRes.serverTimeMs ?? null);
+      } catch (e) {
+        // keep local fallback
+      }
+    }
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <Card>
@@ -49,38 +92,42 @@ export const EducationSection = () => {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <label htmlFor="degree" className="text-sm font-medium">
-            Degree
+            Degree <span className="text-sm text-muted-foreground">({(remoteDegrees ?? degrees).length})</span>
           </label>
-          <Select value={selectedDegree} onValueChange={setSelectedDegree}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select your degree" />
-            </SelectTrigger>
-            <SelectContent>
-              {degrees.map((degree) => (
-                <SelectItem key={degree} value={degree}>
-                  {degree}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-3">
+            <Combobox
+              id="degree"
+              items={remoteDegrees ?? degrees}
+              value={selectedDegree}
+              onChange={setSelectedDegree}
+              placeholder="Select your degree"
+            />
+            {/* <div className="text-sm text-muted-foreground">
+              {degreesServer !== null && <span>srv {degreesServer}ms</span>}
+              {degreesTime !== null && <span> • net {degreesTime}ms</span>}
+              {degreesRender !== null && <span> • render {degreesRender}ms</span>}
+            </div> */}
+          </div>
         </div>
 
         <div className="space-y-2">
           <label htmlFor="institution" className="text-sm font-medium">
-            Institution
+            Institution <span className="text-sm text-muted-foreground">({(remoteInstitutions ?? institutions).length})</span>
           </label>
-          <Select value={selectedInstitution} onValueChange={setSelectedInstitution}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select your institution" />
-            </SelectTrigger>
-            <SelectContent>
-              {institutions.map((institution) => (
-                <SelectItem key={institution} value={institution}>
-                  {institution}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-3">
+            <Combobox
+              id="institution"
+              items={remoteInstitutions ?? institutions}
+              value={selectedInstitution}
+              onChange={setSelectedInstitution}
+              placeholder="Select your institution"
+            />
+            {/* <div className="text-sm text-muted-foreground">
+              {institutionsServer !== null && <span>srv {institutionsServer}ms</span>}
+              {institutionsTime !== null && <span> • net {institutionsTime}ms</span>}
+              {institutionsRender !== null && <span> • render {institutionsRender}ms</span>}
+            </div> */}
+          </div>
         </div>
       </CardContent>
     </Card>
